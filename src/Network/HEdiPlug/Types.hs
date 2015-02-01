@@ -11,7 +11,18 @@
            , FlexibleInstances
            #-}
 
-module Network.HEdiPlug.Types where
+module Network.HEdiPlug.Types
+( -- * Types
+  MAC (..)
+, Hex (..)
+, IPv4 (..)
+, CString (..)
+, Discovery (..)
+, PlugInfo (..)
+, decodeD
+, encodeD
+)
+ where
 
 import Control.Lens        (makeLenses)
 import GHC.Generics        (Generic)
@@ -20,13 +31,15 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding  as T
 import Network.Info
 import Data.Word
-import Data.Binary
+import Data.Binary as B
 import Data.Binary.Get (getWord32le)
 import Data.Binary.Put (putWord32le)
 import Data.Monoid
 import Control.Applicative
 import GHC.TypeLits
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+
 import Control.Monad
 import Data.Coerce
 
@@ -70,9 +83,6 @@ instance KnownNat n => Binary (CString n) where
 makeLenses  ''Discovery
 instance Binary a => Binary (Discovery a) where
 
-discoveryMsg' :: Discovery ()
-discoveryMsg' = Discovery (MAC 0xff 0xff 0xff 0xff 0xff 0xff) (CString "EDIMAX") 0x00a1ff5e ()
-
 data PlugInfo = PlugInfo
   { _piModel :: !(CString 14)
   , _piVer   :: !(CString 8)
@@ -83,5 +93,12 @@ data PlugInfo = PlugInfo
   , _piGW    :: !IPv4
   } deriving (Show, Typeable, Generic)
 makeLenses  ''PlugInfo
+
 instance Binary PlugInfo where
  get = PlugInfo <$> get <*> get <*> get <*> get <*> get <*> get <*> get
+
+decodeD :: B.Binary a =>  BS.ByteString -> a
+decodeD = B.decode . BSL.fromChunks . (:[])
+
+encodeD :: B.Binary a =>  a -> BS.ByteString
+encodeD = head . BSL.toChunks . B.encode

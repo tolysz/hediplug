@@ -7,7 +7,6 @@ import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
 import Control.Exception
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 
 import Data.Monoid
 import Control.Monad
@@ -20,10 +19,11 @@ import Network.HEdiPlug.Types
 discoveryPort = 20560
 
 -- | we broadcast this one and have clients responding with their info
-discoveryMsg = BS.pack [0xff,0xff,0xff,0xff,0xff,0xff,0x45,0x44,0x49,0x4d,0x41,0x58,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa1,0xff,0x5e]
+-- discoveryMsg = BS.pack [0xff,0xff,0xff,0xff,0xff,0xff,0x45,0x44,0x49,0x4d,0x41,0x58,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa1,0xff,0x5e]
 
-decodeD :: B.Binary a =>  BS.ByteString -> a
-decodeD = B.decode . BSL.fromChunks . (:[])
+
+discoveryMsg :: Discovery ()
+discoveryMsg = Discovery (MAC 0xff 0xff 0xff 0xff 0xff 0xff) (CString "EDIMAX") 0x00a1ff5e ()
 
 discover :: IO ()
 discover = withSocketsDo $ bracket getSocket sClose handler
@@ -32,7 +32,7 @@ discover = withSocketsDo $ bracket getSocket sClose handler
                                      (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
                                      Nothing (Just "0")
                 let serveraddr = head addrinfos
-                print (decodeD discoveryMsg :: Discovery ())
+                print discoveryMsg
                 sock <- socket (addrFamily serveraddr) Stream defaultProtocol
                 setSocketOption sock Broadcast  1 -- :: Socket -> SocketOption -> Int -> IO ()
                 sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
@@ -42,16 +42,13 @@ discover = withSocketsDo $ bracket getSocket sClose handler
 handler :: Socket -> IO ()
 handler conn = do
     (devic:_) <- getAddrInfo Nothing (Just "255.255.255.255") (Just $ show discoveryPort)
-    void $ forkIO $ do
-        (msg,d) <- recvFrom conn 1024
-        BS.putStrLn $ "< " <> msg
-        putStrLn $ "< " <> show ( BS.unpack msg)
-        print ( decodeD msg :: Discovery PlugInfo )
-        unless (BS.null msg) $ sendTo conn msg d >> handler conn
-    -- forM_ [1]  (const $
-    SB.sendAllTo conn discoveryMsg (addrAddress devic )
-    threadDelay 1000000
 
+    let loop conn = do
+         (msg,d) <- recvFrom conn 1024
+         print (decodeD msg :: Discovery PlugInfo )
+         loop conn
+    void $ forkIO $ loop conn
+    replicateM_ 1 (SB.sendAllTo conn (encodeD discoveryMsg) (addrAddress devic) >> threadDelay 500000)
 
 --         MAC W8x6
 -- [116,218,56,0,0,1
