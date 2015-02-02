@@ -33,6 +33,7 @@ module Network.HEdiPlug.Types
 , decodeB64Array
 , decodeI
 , decodeI64
+, encodeB64Array
 , liftTime
 )
  where
@@ -57,7 +58,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Control.Monad
 import Data.Coerce
 import Data.Maybe
-import qualified Data.List as DL (elemIndex)
+import qualified Data.List as DL (elemIndex, intercalate)
 
 import Data.Time (UTCTime, getCurrentTime)
 import Data.Time.Format
@@ -140,14 +141,32 @@ decodeD = B.decode . BSL.fromChunks . (:[])
 encodeD :: B.Binary a =>  a -> BS.ByteString
 encodeD = head . BSL.toChunks . B.encode
 
--- =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-k-6H-dp-h/-lD-tJ-CN-L+-Vb-12m-1bs-95-eV-kC-qh-vZ-BF-Hk-M/-SI-Yn-121-17I-1dj-1j1-1oH-1un-1An-1Jm-1Sk-1/q-28A-2hM-2mj
+--
 
 decodeB64Array :: String -> [Int]
 decodeB64Array s = map decodeI64 $ splitOn "-" s
+encodeB64Array :: [Int] -> String
+encodeB64Array = DL.intercalate "-" . map encodeI64
+lookupTable = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
 
-decodeI a = fromMaybe 0 $ DL.elemIndex a "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
+decodeI a = fromMaybe 0 $ DL.elemIndex a lookupTable
+
 decodeI64 [] = 0
 decodeI64 b = decodeI (last b) + 64 * decodeI64 (init b)
+
+
+encodeI64 :: Int -> String
+encodeI64 0 = "="
+encodeI64 a | a > 0 = encodeI641 a
+encodeI64 _ = error "Need to be > 0"
+
+encodeI641 a = case a `divMod` 64 of
+   (0,0) -> ""
+   (d,b) -> encodeI641 d ++ [lookupTable !! b]
+
+
+
+
 
 -- formatT = formatTime defaultTimeLocale "%Y%m%d%H%M%S"
 newtype FlatTime a = FlatTime UTCTime
