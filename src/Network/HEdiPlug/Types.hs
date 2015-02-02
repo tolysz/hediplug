@@ -64,13 +64,13 @@ import Data.Time (UTCTime, getCurrentTime)
 import Data.Time.Format
 import System.Locale
 
-
 import qualified Codec.Binary.Base64.String as S64
 
 import Text.Printf
 import Data.List.Split (splitOn)
 
 newtype Hex a = Hex a deriving (Num)
+
 instance Show (Hex Word32) where
   show (Hex a) = printf "0x%08x" a
 instance Show (Hex Word16) where
@@ -96,7 +96,6 @@ instance IsString MAC where
      where
        [a,b,c,d,e,f] = map (read . (++) "0x" ) $ splitOn ":" s
 
-
 data Discovery a = Discovery
   { _dMAX  :: !MAC
   , _dName :: !(CString 12)
@@ -116,7 +115,6 @@ instance KnownNat n => Binary (CString n) where
   put a@(CString t) = mapM_ put $ take (fromInteger $ natVal a) $ BS.unpack (T.encodeUtf8 t) <> repeat 0
   get =
     CString . T.decodeUtf8 . BS.pack . takeWhile (/= 0) <$> replicateM (fromInteger $ natVal (undefined :: CString n)) get
-
 
 makeLenses  ''Discovery
 instance Binary a => Binary (Discovery a) where
@@ -141,8 +139,6 @@ decodeD = B.decode . BSL.fromChunks . (:[])
 encodeD :: B.Binary a =>  a -> BS.ByteString
 encodeD = head . BSL.toChunks . B.encode
 
---
-
 decodeB64Array :: String -> [Int]
 decodeB64Array s = map decodeI64 $ splitOn "-" s
 encodeB64Array :: [Int] -> String
@@ -154,7 +150,6 @@ decodeI a = fromMaybe 0 $ DL.elemIndex a lookupTable
 decodeI64 [] = 0
 decodeI64 b = decodeI (last b) + 64 * decodeI64 (init b)
 
-
 encodeI64 :: Int -> String
 encodeI64 0 = "="
 encodeI64 a | a > 0 = encodeI641 a
@@ -164,11 +159,6 @@ encodeI641 a = case a `divMod` 64 of
    (0,0) -> ""
    (d,b) -> encodeI641 d ++ [lookupTable !! b]
 
-
-
-
-
--- formatT = formatTime defaultTimeLocale "%Y%m%d%H%M%S"
 newtype FlatTime a = FlatTime UTCTime
 
 data MONTH
@@ -180,22 +170,19 @@ data SECOND
 class TimeResolution a where
  tfString :: a -> String
 
-instance TimeResolution (FlatTime MONTH) where
- tfString _ =  "%Y%m"
-instance TimeResolution (FlatTime DAY )    where
+instance TimeResolution (FlatTime MONTH ) where
+ tfString _ = "%Y%m"
+instance TimeResolution ( FlatTime DAY  ) where
  tfString _ = "%Y%m%d"
-instance TimeResolution (FlatTime HOUR )  where
+instance TimeResolution ( FlatTime HOUR ) where
  tfString _ = "%Y%m%d%H"
 instance TimeResolution (FlatTime MINUTE) where
  tfString _ = "%Y%m%d%H%M"
-instance TimeResolution (FlatTime SECOND )where
+instance TimeResolution (FlatTime SECOND) where
  tfString _ = "%Y%m%d%H%M%S"
-
--- showTime :: TimeResolution (FlatTime a) => FlatTime a -> String
--- showTime  = show
 
 instance TimeResolution (FlatTime a) => Show (FlatTime a) where
   show xf@(FlatTime x) = formatTime defaultTimeLocale (tfString xf) x
 
-liftTime :: a -> UTCTime -> (FlatTime a)
+liftTime :: a -> UTCTime -> FlatTime a
 liftTime _ = FlatTime
